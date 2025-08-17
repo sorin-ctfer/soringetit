@@ -2,4 +2,6 @@
 
 
 一个功能完整、界面精美的CTF刷题记录和管理系统，高效管理CTF学习进度。
-你可以访问https://sorin-ctfer.github.io/soringetit/进行查看
+你可以访问https://sorin-ctfer.github.io/soringetit/
+进行查看
+
