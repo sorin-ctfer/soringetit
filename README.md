@@ -1,7 +1,4 @@
-# sorin的CTF刷题计划管理系统
-
-
-一个功能完整、界面精美的CTF刷题记录和管理系统，高效管理CTF学习进度。
+# sorin blog
 你可以访问https://sorin-ctfer.github.io/soringetit/
-进行查看
+
 
