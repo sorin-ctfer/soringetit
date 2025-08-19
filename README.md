@@ -1,5 +1,6 @@
 # sorin blog
-你可以访问https://sorin-ctfer.github.io/soringetit/
+你可以访问https://sorin-ctfer.github.io/sorin-blog/
+
 
 
 
