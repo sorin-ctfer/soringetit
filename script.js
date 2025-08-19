@@ -6,6 +6,9 @@ class CTFManager {
         this.showOnlyUnsolved = false;
         this.isDarkMode = false;
         this.currentProblem = null;
+        this.isAuthenticated = false;
+        this.monacoEditor = null;
+        this.currentPlatform = 'ctfshow';
         
         // 题目数据结构
         this.topics = [
@@ -49,14 +52,20 @@ class CTFManager {
 
         // 初始化数据
         this.initializeData();
+        
+        // 检查身份验证
+        this.checkAuthentication();
+        
         this.bindEvents();
         this.renderProblems();
         this.updateStats();
+        this.updateSidebarPlatformInfo();
         this.initializeParticles();
         this.startTimeUpdater();
         this.checkTimeEncouragement();
         this.applyCurrentTheme();
         this.initPerformanceMonitor();
+        this.initializeMonacoEditor();
     }
 
     initializeData() {
@@ -67,6 +76,21 @@ class CTFManager {
         this.isDarkMode = JSON.parse(localStorage.getItem('ctf-darkmode') || 'false');
         this.currentTheme = localStorage.getItem('ctf-theme') || 'default';
         this.searchQuery = '';
+        
+        // 初始化平台数据
+        this.platforms = JSON.parse(localStorage.getItem('ctf-platforms') || JSON.stringify({
+            'ctfshow': {
+                name: 'CTFShow',
+                categories: this.getDefaultCategories(),
+                problems: this.getDefaultProblems(),
+                achievements: [],
+                completedProblems: [],
+                wrongProblems: []
+            }
+        }));
+        
+        // 初始化解题报告数据
+        this.reports = JSON.parse(localStorage.getItem('ctf-reports') || '{}');
         
         if (this.isDarkMode) {
             document.body.classList.add('dark-mode');
@@ -84,6 +108,8 @@ class CTFManager {
         localStorage.setItem('ctf-achievements', JSON.stringify(this.achievements));
         localStorage.setItem('ctf-darkmode', JSON.stringify(this.isDarkMode));
         localStorage.setItem('ctf-theme', this.currentTheme);
+        localStorage.setItem('ctf-platforms', JSON.stringify(this.platforms));
+        localStorage.setItem('ctf-reports', JSON.stringify(this.reports));
     }
 
     // 将范围转换为题目数组
@@ -183,7 +209,7 @@ class CTFManager {
 
         // 重置功能
         document.getElementById('reset-btn').addEventListener('click', () => {
-            this.showResetModal();
+            this.requireAuth(() => this.showResetModal());
         });
 
         document.getElementById('close-reset-modal').addEventListener('click', () => {
@@ -192,6 +218,100 @@ class CTFManager {
 
         document.getElementById('confirm-reset').addEventListener('click', () => {
             this.confirmReset();
+        });
+
+        // 身份验证
+        document.getElementById('confirm-auth').addEventListener('click', () => {
+            this.authenticateUser();
+        });
+
+        document.getElementById('auth-password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.authenticateUser();
+            }
+        });
+
+        // 平台管理
+        document.getElementById('platform-manager').addEventListener('click', () => {
+            this.showPlatformManager();
+        });
+
+        document.getElementById('close-platform-modal').addEventListener('click', () => {
+            this.closePlatformModal();
+        });
+
+        document.getElementById('add-platform').addEventListener('click', () => {
+            this.showAddPlatformModal();
+        });
+
+        // 平台快速切换
+        document.getElementById('platform-switch-btn').addEventListener('click', () => {
+            this.togglePlatformQuickSwitch();
+        });
+
+        document.getElementById('quick-add-platform').addEventListener('click', () => {
+            this.showAddPlatformModal();
+        });
+
+        // 解题报告
+        document.getElementById('close-report-modal').addEventListener('click', () => {
+            this.closeReportModal();
+        });
+
+        document.getElementById('close-code-modal').addEventListener('click', () => {
+            this.closeCodeModal();
+        });
+
+        document.getElementById('insert-code').addEventListener('click', () => {
+            this.showCodeEditor();
+        });
+
+        document.getElementById('insert-code-block').addEventListener('click', () => {
+            this.insertCodeBlock();
+        });
+
+        document.getElementById('cancel-code').addEventListener('click', () => {
+            this.closeCodeModal();
+        });
+
+        document.getElementById('preview-report').addEventListener('click', () => {
+            this.previewReport();
+        });
+
+        document.getElementById('save-report').addEventListener('click', () => {
+            this.saveReport();
+        });
+
+        // 编辑器工具栏
+        document.getElementById('font-small').addEventListener('click', () => {
+            this.setFontSize('small');
+        });
+
+        document.getElementById('font-medium').addEventListener('click', () => {
+            this.setFontSize('medium');
+        });
+
+        document.getElementById('font-large').addEventListener('click', () => {
+            this.setFontSize('large');
+        });
+
+        document.getElementById('insert-bold').addEventListener('click', () => {
+            this.insertMarkdown('**', '**');
+        });
+
+        document.getElementById('insert-italic').addEventListener('click', () => {
+            this.insertMarkdown('*', '*');
+        });
+
+        document.getElementById('insert-heading').addEventListener('click', () => {
+            this.insertMarkdown('## ', '');
+        });
+
+        // 代码语言切换
+        document.getElementById('code-language').addEventListener('change', (e) => {
+            if (this.monacoEditor) {
+                monaco.editor.setModelLanguage(this.monacoEditor.getModel(), e.target.value);
+            }
         });
 
         // 主题选择
@@ -205,12 +325,12 @@ class CTFManager {
 
         // 完成题目
         document.getElementById('complete-problem').addEventListener('click', () => {
-            this.completeProblem();
+            this.requireAuth(() => this.completeProblem());
         });
 
         // 加入错题集
         document.getElementById('add-to-wrong').addEventListener('click', () => {
-            this.addToWrong();
+            this.requireAuth(() => this.addToWrong());
         });
 
         // 点击背景关闭模态框
@@ -483,9 +603,28 @@ class CTFManager {
             setTimeout(() => {
                 this.renderProblems();
             }, 100);
+            
+            // 关闭当前模态框
+            this.closeModal();
+            
+            // 询问是否添加解题报告
+            setTimeout(() => {
+                this.askForReport(problemNumber);
+            }, 500);
+        } else {
+            this.closeModal();
         }
+    }
+
+    askForReport(problemNumber) {
+        const existingReport = this.reports[`web${problemNumber}`];
+        const message = existingReport ? 
+            '这道题已有解题报告，是否要编辑？' : 
+            '恭喜完成题目！是否要添加解题报告？';
         
-        this.closeModal();
+        if (confirm(message)) {
+            this.showReportModal(`web${problemNumber}`);
+        }
     }
 
     addToWrong() {
@@ -1315,6 +1454,932 @@ class CTFManager {
         // 减少拖尾频率
         this.trailFrequency = 80; // 增加节流时间
     }
+
+    // ===== 身份验证相关方法 =====
+    
+    checkAuthentication() {
+        const authToken = localStorage.getItem('ctf-auth-token');
+        const authTime = localStorage.getItem('ctf-auth-time');
+        
+        // 检查是否有有效的认证令牌（24小时有效）
+        if (authToken && authTime) {
+            const currentTime = Date.now();
+            const lastAuthTime = parseInt(authTime);
+            const timeDiff = currentTime - lastAuthTime;
+            const hoursInMs = 24 * 60 * 60 * 1000; // 24小时
+            
+            if (timeDiff < hoursInMs && this.verifyAuthToken(authToken)) {
+                this.isAuthenticated = true;
+                return;
+            }
+        }
+        
+        // 需要重新认证
+        this.showAuthModal();
+    }
+    
+    verifyAuthToken(token) {
+        // 简单的验证，实际上应该使用更安全的方法
+        const correctHash = this.simpleHash('soringetit' + 'ctf-secret-salt');
+        return token === correctHash;
+    }
+    
+    simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // 转换为32位整数
+        }
+        return hash.toString(36);
+    }
+    
+    showAuthModal() {
+        document.getElementById('auth-modal').classList.remove('hidden');
+        document.getElementById('auth-password').focus();
+    }
+    
+    authenticateUser() {
+        const password = document.getElementById('auth-password').value;
+        const correctPassword = 'soringetit';
+        
+        if (password === correctPassword) {
+            this.isAuthenticated = true;
+            const authToken = this.simpleHash(password + 'ctf-secret-salt');
+            localStorage.setItem('ctf-auth-token', authToken);
+            localStorage.setItem('ctf-auth-time', Date.now().toString());
+            
+            document.getElementById('auth-modal').classList.add('hidden');
+            document.getElementById('auth-error').style.display = 'none';
+            document.getElementById('auth-password').value = '';
+            
+            this.showEncouragement('🔓 验证成功，欢迎使用！');
+        } else {
+            document.getElementById('auth-error').style.display = 'flex';
+            document.getElementById('auth-password').value = '';
+            document.getElementById('auth-password').style.borderColor = 'var(--error-color)';
+            
+            setTimeout(() => {
+                document.getElementById('auth-password').style.borderColor = '';
+            }, 2000);
+        }
+    }
+
+    requireAuth(callback) {
+        if (this.isAuthenticated) {
+            callback();
+        } else {
+            this.showAuthModal();
+        }
+    }
+
+    // ===== 平台管理相关方法 =====
+    
+    getDefaultCategories() {
+        return this.topics.map(topic => ({
+            id: topic.name,
+            name: topic.name,
+            icon: topic.icon,
+            achievement: `${topic.name}大师！`
+        }));
+    }
+    
+    getDefaultProblems() {
+        const problems = {};
+        this.topics.forEach(topic => {
+            const problemNumbers = this.rangeToProblems(topic.range);
+            problemNumbers.forEach(num => {
+                problems[`web${num}`] = {
+                    id: `web${num}`,
+                    name: `web${num}`,
+                    category: topic.name,
+                    description: '',
+                    completed: false,
+                    isWrong: false
+                };
+            });
+        });
+        return problems;
+    }
+    
+    showPlatformManager() {
+        this.requireAuth(() => {
+            document.getElementById('platform-modal').classList.remove('hidden');
+            this.renderPlatformList();
+        });
+    }
+    
+    renderPlatformList() {
+        const container = document.getElementById('platform-list');
+        container.innerHTML = '';
+        
+        Object.entries(this.platforms).forEach(([platformId, platform]) => {
+            const problemCount = Object.keys(platform.problems).length;
+            const completedCount = platform.completedProblems ? platform.completedProblems.length : 0;
+            
+            const platformItem = document.createElement('div');
+            platformItem.className = `platform-item ${platformId === this.currentPlatform ? 'active' : ''}`;
+            platformItem.innerHTML = `
+                <div class="platform-name">${platform.name}</div>
+                <div class="platform-count">${completedCount}/${problemCount}</div>
+            `;
+            
+            platformItem.addEventListener('click', () => {
+                this.selectPlatform(platformId);
+            });
+            
+            container.appendChild(platformItem);
+        });
+    }
+    
+    selectPlatform(platformId) {
+        this.currentPlatform = platformId;
+        this.renderPlatformList();
+        this.renderPlatformContent();
+        
+        // 切换平台时更新主界面
+        this.loadPlatformData();
+        this.renderProblems();
+        this.updateStats();
+    }
+    
+    loadPlatformData() {
+        const platform = this.platforms[this.currentPlatform];
+        if (platform) {
+            // 如果是ctfshow平台，使用原有的数据结构
+            if (this.currentPlatform === 'ctfshow') {
+                // 保持原有逻辑
+                return;
+            }
+            
+            // 对于其他平台，切换数据
+            this.completedProblems = platform.completedProblems || [];
+            this.wrongProblems = platform.wrongProblems || [];
+            this.achievements = platform.achievements || [];
+        }
+    }
+    
+    renderPlatformContent() {
+        const platform = this.platforms[this.currentPlatform];
+        if (!platform) return;
+        
+        document.getElementById('current-platform-name').textContent = platform.name;
+        document.getElementById('edit-platform').style.display = 'block';
+        
+        const contentArea = document.getElementById('platform-content-area');
+        contentArea.innerHTML = '';
+        
+        // 渲染分类
+        const categoriesHeader = document.createElement('div');
+        categoriesHeader.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h5>题目分类</h5>
+                <button class="action-btn small primary" onclick="ctfManager.showAddCategoryModal()">
+                    <i class="bx bx-plus"></i>新增分类
+                </button>
+            </div>
+        `;
+        contentArea.appendChild(categoriesHeader);
+        
+        const categoryList = document.createElement('div');
+        categoryList.className = 'category-list';
+        
+        platform.categories.forEach(category => {
+            const categoryProblems = Object.values(platform.problems).filter(p => p.category === category.name);
+            const completedCount = categoryProblems.filter(p => p.completed).length;
+            
+            const categoryCard = document.createElement('div');
+            categoryCard.className = 'category-card';
+            categoryCard.innerHTML = `
+                <div class="category-header">
+                    <div class="category-name">${category.name}</div>
+                    <div class="category-progress">${completedCount}/${categoryProblems.length}</div>
+                </div>
+                <div class="category-actions">
+                    <button class="action-btn small secondary" onclick="ctfManager.showAddProblemModal('${category.name}')">
+                        <i class="bx bx-plus"></i>添加题目
+                    </button>
+                </div>
+            `;
+            
+            categoryCard.addEventListener('click', (e) => {
+                if (!e.target.closest('button')) {
+                    this.showCategoryProblems(category.name);
+                }
+            });
+            
+            categoryList.appendChild(categoryCard);
+        });
+        
+        contentArea.appendChild(categoryList);
+    }
+
+    // ===== 解题报告相关方法 =====
+    
+    initializeMonacoEditor() {
+        if (typeof require !== 'undefined') {
+            require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs' }});
+            require(['vs/editor/editor.main'], () => {
+                // Monaco编辑器已加载
+            });
+        }
+    }
+    
+    showReportModal(problemId) {
+        document.getElementById('report-modal').classList.remove('hidden');
+        this.currentReportProblem = problemId;
+        
+        // 加载已有报告
+        const existingReport = this.reports[problemId];
+        if (existingReport) {
+            document.getElementById('report-content').value = existingReport.content;
+        } else {
+            document.getElementById('report-content').value = '';
+        }
+    }
+    
+    showCodeEditor() {
+        document.getElementById('code-modal').classList.remove('hidden');
+        
+        // 初始化Monaco编辑器
+        if (typeof require !== 'undefined') {
+            require(['vs/editor/editor.main'], () => {
+                if (this.monacoEditor) {
+                    this.monacoEditor.dispose();
+                }
+                
+                this.monacoEditor = monaco.editor.create(document.getElementById('monaco-editor'), {
+                    value: '// 在这里输入代码\n',
+                    language: 'javascript',
+                    theme: this.isDarkMode ? 'vs-dark' : 'vs-light',
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    automaticLayout: true
+                });
+            });
+        }
+    }
+    
+    insertCodeBlock() {
+        if (this.monacoEditor) {
+            const code = this.monacoEditor.getValue();
+            const language = document.getElementById('code-language').value;
+            const codeBlock = `\`\`\`${language}\n${code}\n\`\`\`\n\n`;
+            
+            const textarea = document.getElementById('report-content');
+            const cursorPos = textarea.selectionStart;
+            const textBefore = textarea.value.substring(0, cursorPos);
+            const textAfter = textarea.value.substring(cursorPos);
+            
+            textarea.value = textBefore + codeBlock + textAfter;
+            textarea.focus();
+            textarea.setSelectionRange(cursorPos + codeBlock.length, cursorPos + codeBlock.length);
+            
+            this.closeCodeModal();
+        }
+    }
+    
+    previewReport() {
+        const content = document.getElementById('report-content').value;
+        const preview = document.getElementById('report-preview');
+        
+        if (typeof marked !== 'undefined') {
+            preview.innerHTML = marked.parse(content);
+        } else {
+            // 简单的Markdown渲染
+            preview.innerHTML = this.simpleMarkdownRender(content);
+        }
+        
+        // 切换显示
+        const editorContent = document.querySelector('.editor-content');
+        if (preview.style.display === 'none') {
+            preview.style.display = 'block';
+            editorContent.style.display = 'none';
+            document.getElementById('preview-report').innerHTML = '<i class="bx bx-edit"></i>编辑';
+        } else {
+            preview.style.display = 'none';
+            editorContent.style.display = 'flex';
+            document.getElementById('preview-report').innerHTML = '<i class="bx bx-show"></i>预览';
+        }
+    }
+    
+    simpleMarkdownRender(text) {
+        return text
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+            .replace(/`(.*?)`/g, '<code>$1</code>')
+            .replace(/\n/g, '<br>');
+    }
+    
+    saveReport() {
+        const content = document.getElementById('report-content').value;
+        if (content.trim()) {
+            this.reports[this.currentReportProblem] = {
+                content: content,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem('ctf-reports', JSON.stringify(this.reports));
+            this.showEncouragement('📝 解题报告已保存！');
+            this.closeReportModal();
+        }
+    }
+
+    // ===== 模态框控制方法 =====
+    
+    closeReportModal() {
+        document.getElementById('report-modal').classList.add('hidden');
+        document.getElementById('report-preview').style.display = 'none';
+        document.querySelector('.editor-content').style.display = 'flex';
+    }
+    
+    closeCodeModal() {
+        document.getElementById('code-modal').classList.add('hidden');
+        if (this.monacoEditor) {
+            this.monacoEditor.dispose();
+            this.monacoEditor = null;
+        }
+    }
+    
+    closePlatformModal() {
+        document.getElementById('platform-modal').classList.add('hidden');
+    }
+
+    // ===== 编辑器辅助方法 =====
+    
+    setFontSize(size) {
+        const textarea = document.getElementById('report-content');
+        const buttons = document.querySelectorAll('.toolbar-btn[id^="font-"]');
+        
+        buttons.forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`font-${size}`).classList.add('active');
+        
+        switch(size) {
+            case 'small':
+                textarea.style.fontSize = '12px';
+                break;
+            case 'medium':
+                textarea.style.fontSize = '14px';
+                break;
+            case 'large':
+                textarea.style.fontSize = '16px';
+                break;
+        }
+    }
+    
+    insertMarkdown(before, after) {
+        const textarea = document.getElementById('report-content');
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const selectedText = textarea.value.substring(start, end);
+        
+        const replacement = before + selectedText + after;
+        const textBefore = textarea.value.substring(0, start);
+        const textAfter = textarea.value.substring(end);
+        
+        textarea.value = textBefore + replacement + textAfter;
+        textarea.focus();
+        
+        if (selectedText) {
+            textarea.setSelectionRange(start, start + replacement.length);
+        } else {
+            textarea.setSelectionRange(start + before.length, start + before.length);
+        }
+    }
+
+    // ===== 类别和题目管理功能 =====
+    
+    showAddCategoryModal() {
+        const categoryName = prompt('请输入新分类名称：');
+        if (categoryName && categoryName.trim()) {
+            this.addCategory(categoryName.trim());
+        }
+    }
+    
+    addCategory(categoryName) {
+        const platform = this.platforms[this.currentPlatform];
+        if (platform) {
+            // 检查是否已存在
+            const existingCategory = platform.categories.find(c => c.name === categoryName);
+            if (existingCategory) {
+                this.showEncouragement('该分类已存在！', 'error');
+                return;
+            }
+            
+            // 询问分类称号
+            const achievement = prompt('请输入该分类的称号（完成所有题目后获得）：', `${categoryName}大师！`);
+            
+            platform.categories.push({
+                id: categoryName,
+                name: categoryName,
+                icon: 'bx-folder',
+                achievement: achievement || `${categoryName}大师！`
+            });
+            
+            this.saveData();
+            this.renderPlatformContent();
+            this.showEncouragement(`分类 "${categoryName}" 已添加！`);
+        }
+    }
+    
+    showAddProblemModal(categoryName) {
+        // 创建添加题目的对话框
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-backdrop"></div>
+            <div class="modal-content glass-effect">
+                <div class="modal-header">
+                    <h3>添加题目</h3>
+                    <button class="close-btn" onclick="this.closest('.modal').remove()">
+                        <i class='bx bx-x'></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">题目名称</label>
+                        <input type="text" class="form-input" id="problem-name" placeholder="例：web001" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">分类</label>
+                        <input type="text" class="form-input" id="problem-category" value="${categoryName}" readonly />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">题目描述（可选）</label>
+                        <textarea class="form-input form-textarea" id="problem-description" placeholder="请输入题目描述..."></textarea>
+                    </div>
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                        <button class="action-btn secondary" onclick="this.closest('.modal').remove()">
+                            <i class='bx bx-x'></i>取消
+                        </button>
+                        <button class="action-btn primary" onclick="ctfManager.addProblem()">
+                            <i class='bx bx-plus'></i>添加题目
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        document.getElementById('problem-name').focus();
+    }
+    
+    addProblem() {
+        const name = document.getElementById('problem-name').value.trim();
+        const category = document.getElementById('problem-category').value;
+        const description = document.getElementById('problem-description').value.trim();
+        
+        if (!name) {
+            this.showEncouragement('请输入题目名称！', 'error');
+            return;
+        }
+        
+        const platform = this.platforms[this.currentPlatform];
+        if (platform) {
+            // 检查是否已存在
+            if (platform.problems[name]) {
+                this.showEncouragement('该题目已存在！', 'error');
+                return;
+            }
+            
+            platform.problems[name] = {
+                id: name,
+                name: name,
+                category: category,
+                description: description,
+                completed: false,
+                isWrong: false
+            };
+            
+            this.saveData();
+            this.renderPlatformContent();
+            this.showEncouragement(`题目 "${name}" 已添加到 "${category}" 分类！`);
+            
+            // 关闭模态框
+            document.querySelector('.modal:last-child').remove();
+        }
+    }
+    
+    showCategoryProblems(categoryName) {
+        const platform = this.platforms[this.currentPlatform];
+        if (!platform) return;
+        
+        const categoryProblems = Object.values(platform.problems).filter(p => p.category === categoryName);
+        
+        // 创建题目列表模态框
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-backdrop"></div>
+            <div class="modal-content glass-effect large-modal">
+                <div class="modal-header">
+                    <h3>${categoryName} - 题目列表</h3>
+                    <button class="close-btn" onclick="this.closest('.modal').remove()">
+                        <i class='bx bx-x'></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="problem-list">
+                        ${categoryProblems.map(problem => `
+                            <div class="problem-item ${problem.completed ? 'completed' : ''} ${problem.isWrong ? 'wrong' : ''}">
+                                <div class="problem-info">
+                                    <div class="problem-name">${problem.name}</div>
+                                    ${problem.description ? `<div class="problem-description">${problem.description}</div>` : ''}
+                                </div>
+                                <div class="problem-actions">
+                                    <button class="action-btn small secondary" onclick="ctfManager.editProblem('${problem.id}')" title="编辑题目">
+                                        <i class='bx bx-edit'></i>
+                                    </button>
+                                    <button class="action-btn small ${problem.completed ? 'secondary' : 'primary'}" 
+                                            onclick="ctfManager.toggleProblemStatus('${problem.id}')" title="${problem.completed ? '取消完成' : '标记完成'}">
+                                        <i class='bx ${problem.completed ? 'bx-undo' : 'bx-check'}'></i>
+                                    </button>
+                                    ${this.reports[problem.id] ? `
+                                        <button class="action-btn small" style="background: var(--accent-color); color: white;" 
+                                                onclick="ctfManager.showReportModal('${problem.id}')" title="查看解题报告">
+                                            <i class='bx bx-file-text'></i>
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${categoryProblems.length === 0 ? '<div class="empty-state">该分类下暂无题目</div>' : ''}
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    toggleProblemStatus(problemId) {
+        const platform = this.platforms[this.currentPlatform];
+        if (platform && platform.problems[problemId]) {
+            const problem = platform.problems[problemId];
+            problem.completed = !problem.completed;
+            
+            // 更新平台的完成题目列表
+            if (problem.completed) {
+                if (!platform.completedProblems.includes(problemId)) {
+                    platform.completedProblems.push(problemId);
+                }
+                this.showEncouragement(`题目 "${problemId}" 已标记为完成！`);
+                
+                // 询问是否添加解题报告
+                setTimeout(() => {
+                    if (confirm('是否要为这道题添加解题报告？')) {
+                        this.showReportModal(problemId);
+                    }
+                }, 500);
+            } else {
+                const index = platform.completedProblems.indexOf(problemId);
+                if (index > -1) {
+                    platform.completedProblems.splice(index, 1);
+                }
+                this.showEncouragement(`题目 "${problemId}" 已取消完成状态！`);
+            }
+            
+            this.saveData();
+            this.renderPlatformContent();
+            
+            // 刷新题目列表显示
+            const modal = document.querySelector('.modal:last-child');
+            if (modal) {
+                modal.remove();
+                this.showCategoryProblems(problem.category);
+            }
+        }
+    }
+
+    // ===== 平台创建和管理 =====
+    
+    showAddPlatformModal() {
+        const platformName = prompt('请输入新平台名称：');
+        if (platformName && platformName.trim()) {
+            this.addPlatform(platformName.trim());
+        }
+    }
+    
+    addPlatform(platformName) {
+        const platformId = platformName.toLowerCase().replace(/\s+/g, '-');
+        
+        // 检查是否已存在
+        if (this.platforms[platformId]) {
+            this.showEncouragement('该平台已存在！');
+            return;
+        }
+        
+        this.platforms[platformId] = {
+            name: platformName,
+            categories: [],
+            problems: {},
+            achievements: [],
+            completedProblems: [],
+            wrongProblems: []
+        };
+        
+        this.saveData();
+        this.renderPlatformList();
+        this.showEncouragement(`平台 "${platformName}" 已创建！`);
+        
+        // 自动选择新平台
+        this.selectPlatform(platformId);
+    }
+
+    // ===== 平台快速切换功能 =====
+    
+    togglePlatformQuickSwitch() {
+        const quickSwitch = document.getElementById('platform-quick-switch');
+        if (quickSwitch.classList.contains('hidden')) {
+            quickSwitch.classList.remove('hidden');
+            this.renderPlatformQuickList();
+        } else {
+            quickSwitch.classList.add('hidden');
+        }
+    }
+    
+    renderPlatformQuickList() {
+        const container = document.getElementById('platform-quick-list');
+        container.innerHTML = '';
+        
+        Object.entries(this.platforms).forEach(([platformId, platform]) => {
+            const problemCount = Object.keys(platform.problems).length;
+            const completedCount = platform.completedProblems ? platform.completedProblems.length : 0;
+            
+            const platformItem = document.createElement('div');
+            platformItem.className = `platform-quick-item ${platformId === this.currentPlatform ? 'active' : ''}`;
+            platformItem.innerHTML = `
+                <div class="platform-quick-info">
+                    <div class="platform-quick-name">${platform.name}</div>
+                    <div class="platform-quick-progress">${completedCount}/${problemCount}</div>
+                </div>
+                <div class="platform-quick-actions">
+                    <button class="platform-edit-btn" onclick="ctfManager.editPlatform('${platformId}')" title="编辑平台">
+                        <i class='bx bx-edit'></i>
+                    </button>
+                    ${platformId !== 'ctfshow' ? `
+                        <button class="platform-delete-btn" onclick="ctfManager.deletePlatform('${platformId}')" title="删除平台">
+                            <i class='bx bx-trash'></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            
+            // 点击切换平台（但不包括按钮区域）
+            platformItem.addEventListener('click', (e) => {
+                if (!e.target.closest('.platform-quick-actions')) {
+                    this.switchToPlatform(platformId);
+                }
+            });
+            
+            container.appendChild(platformItem);
+        });
+    }
+    
+    switchToPlatform(platformId) {
+        if (platformId !== this.currentPlatform) {
+            this.selectPlatform(platformId);
+            this.updateSidebarPlatformInfo();
+            this.showEncouragement(`已切换到 ${this.platforms[platformId].name} 平台！`);
+        }
+        // 关闭快速切换面板
+        document.getElementById('platform-quick-switch').classList.add('hidden');
+    }
+    
+    updateSidebarPlatformInfo() {
+        const platform = this.platforms[this.currentPlatform];
+        if (platform) {
+            const problemCount = Object.keys(platform.problems).length;
+            const completedCount = platform.completedProblems ? platform.completedProblems.length : 0;
+            
+            document.getElementById('sidebar-platform-name').textContent = platform.name;
+            document.getElementById('sidebar-platform-progress').textContent = `${completedCount}/${problemCount}`;
+        }
+    }
+
+    // ===== 编辑功能实现 =====
+    
+    editPlatform(platformId) {
+        const platform = this.platforms[platformId];
+        if (!platform) return;
+        
+        // 创建编辑平台的模态框
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-backdrop"></div>
+            <div class="modal-content glass-effect edit-modal">
+                <div class="modal-header">
+                    <h3>编辑平台</h3>
+                    <button class="close-btn" onclick="this.closest('.modal').remove()">
+                        <i class='bx bx-x'></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="edit-form">
+                        <div class="form-group">
+                            <label class="form-label">平台名称</label>
+                            <input type="text" class="form-input" id="edit-platform-name" value="${platform.name}" />
+                        </div>
+                        <div class="form-actions">
+                            <button class="action-btn secondary" onclick="this.closest('.modal').remove()">
+                                <i class='bx bx-x'></i>取消
+                            </button>
+                            <button class="action-btn primary" onclick="ctfManager.savePlatformEdit('${platformId}')">
+                                <i class='bx bx-save'></i>保存
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        document.getElementById('edit-platform-name').focus();
+    }
+    
+    savePlatformEdit(platformId) {
+        const newName = document.getElementById('edit-platform-name').value.trim();
+        
+        if (!newName) {
+            this.showEncouragement('平台名称不能为空！');
+            return;
+        }
+        
+        this.platforms[platformId].name = newName;
+        this.saveData();
+        this.updateSidebarPlatformInfo();
+        this.renderPlatformQuickList();
+        this.showEncouragement('平台信息已更新！');
+        
+        // 关闭模态框
+        document.querySelector('.modal:last-child').remove();
+    }
+    
+    deletePlatform(platformId) {
+        if (platformId === 'ctfshow') {
+            this.showEncouragement('不能删除CTFShow平台！');
+            return;
+        }
+        
+        const platform = this.platforms[platformId];
+        if (confirm(`确定要删除平台 "${platform.name}" 吗？这将删除该平台的所有数据，此操作不可撤销！`)) {
+            delete this.platforms[platformId];
+            
+            // 如果删除的是当前平台，切换到ctfshow
+            if (this.currentPlatform === platformId) {
+                this.switchToPlatform('ctfshow');
+            }
+            
+            this.saveData();
+            this.renderPlatformQuickList();
+            this.showEncouragement(`平台 "${platform.name}" 已删除！`);
+        }
+    }
+    
+    editProblem(problemId) {
+        const platform = this.platforms[this.currentPlatform];
+        const problem = platform.problems[problemId];
+        if (!problem) return;
+        
+        // 创建编辑题目的模态框
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-backdrop"></div>
+            <div class="modal-content glass-effect edit-modal">
+                <div class="modal-header">
+                    <h3>编辑题目</h3>
+                    <button class="close-btn" onclick="this.closest('.modal').remove()">
+                        <i class='bx bx-x'></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="edit-form">
+                        <div class="form-group">
+                            <label class="form-label">题目名称</label>
+                            <input type="text" class="form-input" id="edit-problem-name" value="${problem.name}" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">分类</label>
+                            <select class="form-input" id="edit-problem-category">
+                                ${platform.categories.map(cat => 
+                                    `<option value="${cat.name}" ${cat.name === problem.category ? 'selected' : ''}>${cat.name}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">题目描述</label>
+                            <textarea class="form-input form-textarea" id="edit-problem-description">${problem.description || ''}</textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button class="action-btn secondary" onclick="this.closest('.modal').remove()">
+                                <i class='bx bx-x'></i>取消
+                            </button>
+                            <button class="action-btn primary" onclick="ctfManager.saveProblemEdit('${problemId}')">
+                                <i class='bx bx-save'></i>保存
+                            </button>
+                            <button class="action-btn" style="background: var(--error-color); color: white;" onclick="ctfManager.deleteProblem('${problemId}')">
+                                <i class='bx bx-trash'></i>删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        document.getElementById('edit-problem-name').focus();
+    }
+    
+    saveProblemEdit(problemId) {
+        const platform = this.platforms[this.currentPlatform];
+        const problem = platform.problems[problemId];
+        
+        const newName = document.getElementById('edit-problem-name').value.trim();
+        const newCategory = document.getElementById('edit-problem-category').value;
+        const newDescription = document.getElementById('edit-problem-description').value.trim();
+        
+        if (!newName) {
+            this.showEncouragement('题目名称不能为空！');
+            return;
+        }
+        
+        // 如果名称改变了，需要更新键值
+        if (newName !== problemId) {
+            // 检查新名称是否已存在
+            if (platform.problems[newName]) {
+                this.showEncouragement('该题目名称已存在！');
+                return;
+            }
+            
+            // 删除旧键，添加新键
+            delete platform.problems[problemId];
+            platform.problems[newName] = problem;
+            problem.id = newName;
+            problem.name = newName;
+            
+            // 更新完成列表中的引用
+            const completedIndex = platform.completedProblems.indexOf(problemId);
+            if (completedIndex > -1) {
+                platform.completedProblems[completedIndex] = newName;
+            }
+            
+            // 更新错题列表中的引用
+            const wrongIndex = platform.wrongProblems.indexOf(problemId);
+            if (wrongIndex > -1) {
+                platform.wrongProblems[wrongIndex] = newName;
+            }
+        } else {
+            problem.name = newName;
+        }
+        
+        problem.category = newCategory;
+        problem.description = newDescription;
+        
+        this.saveData();
+        this.renderPlatformContent();
+        this.showEncouragement('题目信息已更新！');
+        
+        // 关闭模态框
+        document.querySelector('.modal:last-child').remove();
+    }
+    
+    deleteProblem(problemId) {
+        const platform = this.platforms[this.currentPlatform];
+        const problem = platform.problems[problemId];
+        
+        if (confirm(`确定要删除题目 "${problem.name}" 吗？`)) {
+            delete platform.problems[problemId];
+            
+            // 从完成列表中移除
+            const completedIndex = platform.completedProblems.indexOf(problemId);
+            if (completedIndex > -1) {
+                platform.completedProblems.splice(completedIndex, 1);
+            }
+            
+            // 从错题列表中移除
+            const wrongIndex = platform.wrongProblems.indexOf(problemId);
+            if (wrongIndex > -1) {
+                platform.wrongProblems.splice(wrongIndex, 1);
+            }
+            
+            this.saveData();
+            this.renderPlatformContent();
+            this.showEncouragement(`题目 "${problem.name}" 已删除！`);
+            
+            // 关闭所有模态框
+            document.querySelectorAll('.modal').forEach(modal => modal.remove());
+        }
+    }
+
+
 }
 
 // 初始化应用

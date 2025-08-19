@@ -3,294 +3,541 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CTF刷题计划管理系统</title>
-    <meta name="description" content="一个功能完整、界面精美的CTF刷题记录和管理系统">
-    <meta name="keywords" content="CTF,网络安全,刷题,学习管理,进度跟踪">
-    <meta name="author" content="CTF Master">
+    <title>SORIN - 我一直在等你</title>
+    <meta name="description" content="SORIN的学习平台 - CTF刷题、文章发布、知识分享">
+    <meta name="keywords" content="SORIN,CTF,学习平台,文章发布">
+    <meta name="author" content="SORIN">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#667eea">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="base-styles.css">
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- 背景粒子效果 -->
-    <div id="particles-js"></div>
-    
-    <!-- 几何背景层 -->
-    <div class="geometric-background">
-        <div class="geometric-shape shape-1"></div>
-        <div class="geometric-shape shape-2"></div>
-        <div class="geometric-shape shape-3"></div>
-        <div class="geometric-shape shape-4"></div>
-        <div class="geometric-shape shape-5"></div>
-    </div>
-    
-    <!-- 顶部导航栏 -->
-    <nav class="navbar glass-effect">
-        <div class="nav-container">
-            <div class="nav-left">
-                <h1 class="logo">CTF Master</h1>
-                <div class="time-display">
-                    <i class='bx bx-time'></i>
-                    <span id="current-time"></span>
+    <!-- 加载界面 -->
+    <div id="loading-screen" class="loading-screen">
+        <!-- 加载界面自然粒子 -->
+        <div class="loading-particles" id="loading-particles"></div>
+        
+        <div class="terminal-container">
+            <div class="terminal-header">
+                <div class="terminal-buttons">
+                    <div class="btn red"></div>
+                    <div class="btn yellow"></div>
+                    <div class="btn green"></div>
                 </div>
+                <div class="terminal-title">SORIN Terminal</div>
             </div>
-            <div class="nav-controls">
-                <div class="search-container">
-                    <i class='bx bx-search'></i>
-                    <input type="text" id="search-input" placeholder="搜索题目..." />
-                    <button class="clear-search" id="clear-search">
-                        <i class='bx bx-x'></i>
-                    </button>
+            <div class="terminal-body">
+                <div class="loading-text">
+                    <span class="prompt">sorin@system:~$ </span>
+                    <span id="loading-message">我一直在等你...</span>
+                    <span class="cursor">|</span>
                 </div>
-                <button class="nav-btn" id="mode-toggle">
-                    <i class='bx bx-shuffle'></i>
-                    <span>按专题</span>
-                </button>
-                <button class="nav-btn" id="filter-toggle">
-                    <i class='bx bx-filter'></i>
-                    <span>仅未刷</span>
-                </button>
-                <button class="nav-btn" id="theme-picker">
-                    <i class='bx bx-palette'></i>
-                </button>
-                <button class="nav-btn" id="theme-toggle">
-                    <i class='bx bx-moon'></i>
-                </button>
-                <button class="nav-btn danger" id="reset-btn">
-                    <i class='bx bx-reset'></i>
-                </button>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="progress-percent">0</span>%
+                    </div>
+                </div>
             </div>
         </div>
-    </nav>
-
-    <!-- 主容器 -->
-    <div class="main-container">
-        <!-- 侧边栏 -->
-        <aside class="sidebar glass-effect">
-            <div class="stats-section">
-                <h3>统计信息</h3>
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class='bx bx-trophy'></i>
-                    </div>
-                    <div class="stat-info">
-                        <span class="stat-number" id="completed-count">0</span>
-                        <span class="stat-label">已完成</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class='bx bx-target-lock'></i>
-                    </div>
-                    <div class="stat-info">
-                        <span class="stat-number" id="total-count">859</span>
-                        <span class="stat-label">总题目</span>
-                    </div>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
-                </div>
-            </div>
-
-            <div class="achievement-section">
-                <h3>获得称号</h3>
-                <div id="achievements-list" class="achievements-list">
-                    <!-- 动态生成称号 -->
-                </div>
-            </div>
-
-            <div class="quick-actions">
-                <button class="action-btn" id="solved-problems-btn">
-                    <i class='bx bx-check-circle'></i>
-                    已刷题目
-                </button>
-                <button class="action-btn" id="wrong-problems-btn">
-                    <i class='bx bx-error-circle'></i>
-                    错题集
-                </button>
-            </div>
-        </aside>
-
-        <!-- 主内容区 -->
-        <main class="content-area">
-            <!-- 模式切换显示 -->
-            <div class="mode-indicator glass-effect">
-                <span id="current-mode">按专题刷题</span>
-            </div>
-
-            <!-- 专题刷题模式 -->
-            <div id="topic-mode" class="problems-container">
-                <!-- 动态生成专题卡片 -->
-            </div>
-
-            <!-- 顺序刷题模式 -->
-            <div id="sequence-mode" class="problems-container hidden">
-                <!-- 动态生成题目卡片 -->
-            </div>
-        </main>
     </div>
 
-    <!-- 题目详情模态框 -->
-    <div id="problem-modal" class="modal hidden">
+    <!-- 文章预览弹窗 -->
+    <div id="article-preview-modal" class="modal hidden">
         <div class="modal-backdrop"></div>
-        <div class="modal-content glass-effect">
+        <div class="modal-content glass-effect article-preview">
             <div class="modal-header">
-                <h3 id="modal-title"></h3>
-                <button class="close-btn" id="close-modal">
+                <h3>📰 最新力作</h3>
+                <button class="close-btn" id="close-article-preview">
                     <i class='bx bx-x'></i>
                 </button>
             </div>
             <div class="modal-body">
-                <div class="problem-info">
-                    <span class="problem-category" id="modal-category"></span>
-                    <span class="problem-number" id="modal-number"></span>
-                </div>
-                <div class="modal-actions">
-                    <button class="complete-btn" id="complete-problem">
-                        <i class='bx bx-check'></i>
-                        标记完成
-                    </button>
-                    <button class="wrong-btn" id="add-to-wrong">
-                        <i class='bx bx-error'></i>
-                        加入错题集
-                    </button>
+                <div id="latest-articles" class="articles-grid">
+                    <!-- 动态生成最新文章 -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 已刷题目模态框 -->
-    <div id="solved-modal" class="modal hidden">
+    <!-- 主界面 -->
+    <div id="main-interface" class="main-interface hidden">
+        <!-- 自然粒子效果 -->
+        <div class="nature-particles" id="nature-particles"></div>
+        
+        <!-- 背景装饰文字 -->
+        <div class="background-text">SORIN</div>
+        
+        <!-- 顶部菜单按钮 -->
+        <div class="menu-toggle" id="menu-toggle">
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+
+        <!-- 中心交互区域 -->
+        <div class="center-content">
+            <div class="interactive-text" id="interactive-text">
+                <span id="dynamic-text">点击我，查看更多</span>
+                <span class="terminal-cursor">|</span>
+            </div>
+            <div class="interaction-hint hidden" id="interaction-hint">
+                请不要松手，马上进入
+            </div>
+            <div class="pixel-progress-container hidden" id="pixel-progress-container">
+                <div class="pixel-progress">
+                    <div class="pixel-progress-fill" id="pixel-progress-fill"></div>
+                </div>
+                <div class="pixel-progress-text" id="pixel-progress-text">0%</div>
+            </div>
+        </div>
+
+        <!-- 左下角文章按钮 -->
+        <div class="articles-button" id="articles-button">
+            <i class='bx bx-book-open'></i>
+            <span>全部文章</span>
+        </div>
+
+        <!-- 文章列表弹窗 -->
+        <div class="articles-panel hidden" id="articles-panel">
+            <div class="articles-header">
+                <h3>📚 所有文章</h3>
+                <button class="close-panel-btn" id="close-articles-panel">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            <div class="articles-list" id="articles-list">
+                <!-- 动态生成文章列表 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 菜单界面 -->
+    <div id="menu-interface" class="menu-interface hidden">
+        <div class="menu-terminal">
+            <div class="terminal-header">
+                <div class="terminal-buttons">
+                    <div class="btn red"></div>
+                    <div class="btn yellow"></div>
+                    <div class="btn green"></div>
+                </div>
+                <div class="terminal-title">SORIN Admin Terminal</div>
+            </div>
+            <div class="terminal-body">
+                <div class="auth-prompt" id="auth-prompt">
+                    <div class="prompt-line">
+                        <span class="prompt">sorin@admin:~$ </span>
+                        <span>sudo access admin panel</span>
+                    </div>
+                    <div class="prompt-line">
+                        <span class="prompt">[sudo] password for sorin: </span>
+                        <input type="password" id="admin-password" class="terminal-input">
+                        <span class="cursor">|</span>
+                    </div>
+                </div>
+                <div class="admin-menu hidden" id="admin-menu">
+                    <div class="menu-header">
+                        <span class="prompt">sorin@admin:~$ </span>
+                        <span>Welcome to SORIN Admin Panel</span>
+                    </div>
+                    <div class="menu-options">
+                        <div class="menu-option" data-action="platforms">
+                            <i class='bx bx-buildings'></i>
+                            <span>平台管理</span>
+                        </div>
+                        <div class="menu-option" data-action="articles">
+                            <i class='bx bx-edit'></i>
+                            <span>文章管理</span>
+                        </div>
+                        <div class="menu-option" data-action="exit">
+                            <i class='bx bx-exit'></i>
+                            <span>退出</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 平台选择界面 -->
+    <div id="platform-selection" class="platform-selection hidden">
+        <div class="platform-header">
+            <h2>选择进入平台</h2>
+            <p>Choose your learning platform</p>
+        </div>
+        <div class="platforms-grid" id="platforms-grid">
+            <!-- 动态生成平台卡片 -->
+        </div>
+        <div class="back-button" id="back-to-main">
+            <i class='bx bx-arrow-back'></i>
+            <span>返回主页</span>
+        </div>
+    </div>
+
+    <!-- 文章详情模态框 -->
+    <div id="article-detail-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-effect article-detail">
+            <div class="modal-header">
+                <h3 id="article-title">文章标题</h3>
+                <button class="close-btn" id="close-article-detail">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="article-meta">
+                    <span class="article-date" id="article-date"></span>
+                    <span class="article-category" id="article-category"></span>
+                </div>
+                <div class="article-content" id="article-content">
+                    <!-- 动态加载文章内容 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 平台管理模态框 -->
+    <div id="platform-management-modal" class="modal hidden">
         <div class="modal-backdrop"></div>
         <div class="modal-content glass-effect large-modal">
             <div class="modal-header">
-                <h3>已刷题目</h3>
-                <button class="close-btn" id="close-solved-modal">
+                <h3>🏗️ 平台管理</h3>
+                <button class="close-btn" id="close-platform-management">
                     <i class='bx bx-x'></i>
                 </button>
             </div>
             <div class="modal-body">
-                <div id="solved-problems-list" class="solved-problems-grid">
-                    <!-- 动态生成已刷题目 -->
+                <div class="platform-management-content">
+                    <div class="platform-list-section">
+                        <h4>现有平台</h4>
+                        <div id="platform-management-list" class="platform-cards">
+                            <!-- 动态生成平台管理卡片 -->
+                        </div>
+                    </div>
+                    <div class="platform-actions">
+                        <button class="action-btn primary" id="add-new-platform">
+                            <i class='bx bx-plus'></i>
+                            添加新平台
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 错题集模态框 -->
-    <div id="wrong-modal" class="modal hidden">
+    <!-- 文章管理模态框 -->
+    <div id="article-management-modal" class="modal hidden">
         <div class="modal-backdrop"></div>
         <div class="modal-content glass-effect large-modal">
             <div class="modal-header">
-                <h3>错题集</h3>
-                <button class="close-btn" id="close-wrong-modal">
+                <h3>📝 文章管理</h3>
+                <button class="close-btn" id="close-article-management">
                     <i class='bx bx-x'></i>
                 </button>
             </div>
             <div class="modal-body">
-                <div id="wrong-problems-list" class="solved-problems-grid">
-                    <!-- 动态生成错题 -->
+                <div class="article-management-content">
+                    <div class="article-toolbar">
+                        <button class="action-btn primary" id="create-new-article">
+                            <i class='bx bx-plus'></i>
+                            新建文章
+                        </button>
+                    </div>
+                    <div id="article-management-list" class="article-management-cards">
+                        <!-- 动态生成文章管理卡片 -->
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 激励提示 -->
-    <div id="encouragement-toast" class="toast hidden">
-        <div class="toast-content">
-            <i class='bx bx-trophy'></i>
-            <span id="toast-message"></span>
-        </div>
-    </div>
-
-    <!-- 庆祝动画容器 -->
-    <div id="celebration-container"></div>
-
-    <!-- 主题选择器 -->
-    <div id="theme-selector" class="theme-selector hidden">
-        <div class="theme-backdrop"></div>
-        <div class="theme-content glass-effect">
-            <div class="theme-header">
-                <h3>选择主题</h3>
-                <button class="close-btn" id="close-theme-selector">
+    <!-- 文章编辑器模态框 -->
+    <div id="article-editor-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-effect article-editor-modal">
+            <div class="modal-header">
+                <h3 id="article-editor-title">📝 编辑文章</h3>
+                <button class="close-btn" id="close-article-editor">
                     <i class='bx bx-x'></i>
                 </button>
             </div>
-            <div class="theme-grid">
-                <div class="theme-option active" data-theme="default">
-                    <div class="theme-preview default-preview"></div>
-                    <span>默认渐变</span>
-                </div>
-                <div class="theme-option" data-theme="elegant-gray">
-                    <div class="theme-preview elegant-gray-preview"></div>
-                    <span>典雅灰</span>
-                </div>
-                <div class="theme-option" data-theme="premium-black">
-                    <div class="theme-preview premium-black-preview"></div>
-                    <span>高级黑</span>
-                </div>
-                <div class="theme-option" data-theme="pure-white">
-                    <div class="theme-preview pure-white-preview"></div>
-                    <span>纯净白</span>
-                </div>
-                <div class="theme-option" data-theme="elegant-blue">
-                    <div class="theme-preview elegant-blue-preview"></div>
-                    <span>淡雅蓝</span>
-                </div>
-                <div class="theme-option" data-theme="nature-green">
-                    <div class="theme-preview nature-green-preview"></div>
-                    <span>自然绿</span>
-                </div>
-                <div class="theme-option" data-theme="neon-pink">
-                    <div class="theme-preview neon-pink-preview"></div>
-                    <span>霓虹粉</span>
-                </div>
-                <div class="theme-option" data-theme="mystery-purple">
-                    <div class="theme-preview mystery-purple-preview"></div>
-                    <span>神秘紫</span>
+            <div class="modal-body">
+                <div class="article-editor-form">
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label class="form-label">文章标题</label>
+                            <input type="text" class="form-input" id="article-title-input" placeholder="输入文章标题">
+                        </div>
+                        <div class="form-group half">
+                            <label class="form-label">文章分类</label>
+                            <input type="text" class="form-input" id="article-category-input" placeholder="输入文章分类">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">文章摘要</label>
+                        <textarea class="form-input" id="article-excerpt-input" rows="2" placeholder="输入文章摘要（可选）"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">预览图片</label>
+                        <div class="image-selector-area">
+                            <div class="image-preview" id="image-preview">
+                                <div class="image-placeholder">
+                                    <i class='bx bx-image-add'></i>
+                                    <span>点击选择图片</span>
+                                </div>
+                            </div>
+                            <div class="image-actions">
+                                <button type="button" class="action-btn secondary small" id="select-image-btn">
+                                    <i class='bx bx-image'></i>选择图片
+                                </button>
+                                <button type="button" class="action-btn secondary small hidden" id="remove-image-btn">
+                                    <i class='bx bx-trash'></i>移除图片
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">文章内容</label>
+                        <div class="content-editor">
+                            <div class="editor-toolbar">
+                                <div class="toolbar-group">
+                                    <button type="button" class="toolbar-btn" data-action="bold" title="加粗">
+                                        <i class='bx bx-bold'></i>
+                                    </button>
+                                    <button type="button" class="toolbar-btn" data-action="italic" title="斜体">
+                                        <i class='bx bx-italic'></i>
+                                    </button>
+                                    <button type="button" class="toolbar-btn" data-action="heading" title="标题">
+                                        <i class='bx bx-heading'></i>
+                                    </button>
+                                    <button type="button" class="toolbar-btn" data-action="link" title="链接">
+                                        <i class='bx bx-link'></i>
+                                    </button>
+                                </div>
+                                <div class="toolbar-group">
+                                    <button type="button" class="toolbar-btn" data-action="code" title="代码">
+                                        <i class='bx bx-code'></i>
+                                    </button>
+                                    <button type="button" class="toolbar-btn" data-action="quote" title="引用">
+                                        <i class='bx bx-message-square-quote'></i>
+                                    </button>
+                                    <button type="button" class="toolbar-btn" data-action="list" title="列表">
+                                        <i class='bx bx-list-ul'></i>
+                                    </button>
+                                </div>
+                                <div class="toolbar-group">
+                                    <button type="button" class="toolbar-btn" id="toggle-preview" title="预览">
+                                        <i class='bx bx-show'></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="editor-content-area">
+                                <textarea class="form-input content-textarea" id="article-content-input" rows="15" placeholder="输入文章内容，支持Markdown语法"></textarea>
+                                <div class="content-preview hidden" id="content-preview">
+                                    <!-- 预览内容 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="editor-actions">
+                        <button type="button" class="action-btn secondary" id="cancel-article-edit">
+                            <i class='bx bx-x'></i>取消
+                        </button>
+                        <button type="button" class="action-btn" id="save-article-draft">
+                            <i class='bx bx-save'></i>保存草稿
+                        </button>
+                        <button type="button" class="action-btn primary" id="publish-article">
+                            <i class='bx bx-send'></i>发布文章
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 重置确认对话框 -->
-    <div id="reset-modal" class="modal hidden">
+    <!-- 平台编辑对话框 -->
+    <div id="edit-platform-dialog" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-effect large-modal">
+            <div class="modal-header">
+                <h3>🛠️ 编辑平台</h3>
+                <button class="close-btn" id="close-edit-platform-dialog">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="platform-editor">
+                    <div class="editor-tabs">
+                        <button class="tab-btn active" data-tab="categories">📁 题目类别</button>
+                        <button class="tab-btn" data-tab="achievements">🏆 称号成就</button>
+                        <button class="tab-btn" data-tab="problems">➕ 添加题目</button>
+                    </div>
+                    
+                    <!-- 类别编辑 -->
+                    <div class="tab-content active" id="categories-tab">
+                        <div class="section-header">
+                            <h4>题目类别管理</h4>
+                            <button class="action-btn primary small" id="add-category">
+                                <i class='bx bx-plus'></i>添加类别
+                            </button>
+                        </div>
+                        <div class="categories-list" id="categories-list">
+                            <!-- 动态生成类别列表 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 成就编辑 -->
+                    <div class="tab-content" id="achievements-tab">
+                        <div class="section-header">
+                            <h4>称号成就管理</h4>
+                            <button class="action-btn primary small" id="add-achievement">
+                                <i class='bx bx-plus'></i>添加成就
+                            </button>
+                        </div>
+                        <div class="achievements-list" id="achievements-edit-list">
+                            <!-- 动态生成成就列表 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 题目添加 -->
+                    <div class="tab-content" id="problems-tab">
+                        <div class="section-header">
+                            <h4>添加题目</h4>
+                        </div>
+                        <div class="add-problem-form">
+                            <div class="form-group">
+                                <label class="form-label">选择类别</label>
+                                <select class="form-input" id="problem-category-select">
+                                    <!-- 动态生成类别选项 -->
+                                </select>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group half">
+                                    <label class="form-label">起始题号</label>
+                                    <input type="number" class="form-input" id="problem-start-number" placeholder="例如: 1">
+                                </div>
+                                <div class="form-group half">
+                                    <label class="form-label">结束题号</label>
+                                    <input type="number" class="form-input" id="problem-end-number" placeholder="例如: 17">
+                                </div>
+                            </div>
+                            <button class="action-btn primary" id="add-problems-to-category">
+                                <i class='bx bx-plus'></i>添加题目范围
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="platform-editor-actions">
+                    <button class="action-btn secondary" id="cancel-platform-edit">
+                        <i class='bx bx-x'></i>取消
+                    </button>
+                    <button class="action-btn primary" id="save-platform-edit">
+                        <i class='bx bx-save'></i>保存更改
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 平台创建对话框 -->
+    <div id="add-platform-dialog" class="modal hidden">
         <div class="modal-backdrop"></div>
         <div class="modal-content glass-effect">
             <div class="modal-header">
-                <h3>⚠️ 重置数据</h3>
-                <button class="close-btn" id="close-reset-modal">
+                <h3>🚀 创建新平台</h3>
+                <button class="close-btn" id="close-add-platform-dialog">
                     <i class='bx bx-x'></i>
                 </button>
             </div>
             <div class="modal-body">
-                <p>此操作将清除所有刷题记录，请输入密码确认：</p>
-                <div class="password-input-container">
-                    <input type="password" id="reset-password" placeholder="请输入重置密码" />
-                    <button class="confirm-reset-btn" id="confirm-reset">
-                        <i class='bx bx-check'></i>
-                        确认重置
-                    </button>
-                </div>
-                <div class="reset-warning">
-                    <i class='bx bx-error'></i>
-                    <span>警告：此操作不可撤销！</span>
+                <div class="platform-creation-form">
+                    <div class="form-group">
+                        <label class="form-label">平台名称</label>
+                        <input type="text" class="form-input" id="new-platform-name" placeholder="输入平台名称">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">平台描述</label>
+                        <textarea class="form-input" id="new-platform-description" rows="3" placeholder="输入平台描述"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">平台图标</label>
+                        <select class="form-input" id="new-platform-icon">
+                            <option value="bx-trophy">🏆 奖杯</option>
+                            <option value="bx-code">💻 代码</option>
+                            <option value="bx-shield">🛡️ 安全</option>
+                            <option value="bx-brain">🧠 思考</option>
+                            <option value="bx-target-lock">🎯 目标</option>
+                            <option value="bx-rocket">🚀 火箭</option>
+                            <option value="bx-heart">❤️ 爱心</option>
+                            <option value="bx-star">⭐ 星星</option>
+                            <option value="bx-diamond">💎 钻石</option>
+                            <option value="bx-leaf">🌿 叶子</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">平台类型</label>
+                        <div class="platform-type-options">
+                            <label class="radio-option">
+                                <input type="radio" name="platform-type" value="template" checked>
+                                <span class="radio-label">使用CTFShow模板</span>
+                                <small>快速创建一个类似CTFShow的刷题平台</small>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="platform-type" value="custom">
+                                <span class="radio-label">自定义平台</span>
+                                <small>创建空白平台，需要手动添加index.html</small>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="platform-creation-actions">
+                        <button type="button" class="action-btn secondary" id="cancel-platform-creation">
+                            <i class='bx bx-x'></i>取消
+                        </button>
+                        <button type="button" class="action-btn primary" id="confirm-platform-creation">
+                            <i class='bx bx-plus'></i>创建平台
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 点击特效容器 -->
-    <div id="click-effects"></div>
-    
-    <!-- 鼠标拖尾容器 -->
-    <div id="mouse-trail"></div>
+    <!-- 图片选择模态框 -->
+    <div id="image-selector-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-effect">
+            <div class="modal-header">
+                <h3>🖼️ 选择图片</h3>
+                <button class="close-btn" id="close-image-selector">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="image-gallery" id="image-gallery">
+                    <!-- 动态生成图片列表 -->
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs/loader.js"></script>
+    <script src="base-script.js"></script>
 </body>
 </html>

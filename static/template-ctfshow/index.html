@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTFShow - 在线刷题平台</title>
+    <meta name="description" content="CTFShow专业CTF在线刷题平台">
+    <meta name="keywords" content="CTF,CTFShow,网络安全,刷题,在线练习">
+    <meta name="author" content="CTFShow">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- 背景粒子效果 -->
+    <div id="particles-js"></div>
+    
+    <!-- 几何背景层 -->
+    <div class="geometric-background">
+        <div class="geometric-shape shape-1"></div>
+        <div class="geometric-shape shape-2"></div>
+        <div class="geometric-shape shape-3"></div>
+        <div class="geometric-shape shape-4"></div>
+        <div class="geometric-shape shape-5"></div>
+    </div>
+    
+    <!-- 顶部导航栏 -->
+    <nav class="navbar glass-effect">
+        <div class="nav-container">
+            <div class="nav-left">
+                <h1 class="logo">CTFShow</h1>
+                <div class="time-display">
+                    <i class='bx bx-time'></i>
+                    <span id="current-time"></span>
+                </div>
+            </div>
+            <div class="nav-controls">
+                <div class="search-container">
+                    <i class='bx bx-search'></i>
+                    <input type="text" id="search-input" placeholder="搜索题目..." />
+                    <button class="clear-search" id="clear-search">
+                        <i class='bx bx-x'></i>
+                    </button>
+                </div>
+                <button class="nav-btn" id="mode-toggle">
+                    <i class='bx bx-shuffle'></i>
+                    <span>按专题</span>
+                </button>
+                <button class="nav-btn" id="filter-toggle">
+                    <i class='bx bx-filter'></i>
+                    <span>仅未刷</span>
+                </button>
+                <button class="nav-btn" id="theme-picker">
+                    <i class='bx bx-palette'></i>
+                </button>
+                <button class="nav-btn" id="theme-toggle">
+                    <i class='bx bx-moon'></i>
+                </button>
+                <button class="nav-btn" id="back-to-base">
+                    <i class='bx bx-home'></i>
+                    <span>返回主页</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar glass-effect">
+            <div class="stats-section">
+                <h3>统计信息</h3>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class='bx bx-trophy'></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="completed-count">0</span>
+                        <span class="stat-label">已完成</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class='bx bx-target-lock'></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="total-count">859</span>
+                        <span class="stat-label">总题目</span>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="achievement-section">
+                <h3>获得称号</h3>
+                <div id="achievements-list" class="achievements-list">
+                    <!-- 动态生成称号 -->
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <button class="action-btn" id="solved-problems-btn">
+                    <i class='bx bx-check-circle'></i>
+                    已刷题目
+                </button>
+                <button class="action-btn" id="wrong-problems-btn">
+                    <i class='bx bx-error-circle'></i>
+                    错题集
+                </button>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="content-area">
+            <!-- 模式切换显示 -->
+            <div class="mode-indicator glass-effect">
+                <span id="current-mode">按专题刷题</span>
+            </div>
+
+            <!-- 专题刷题模式 -->
+            <div id="topic-mode" class="problems-container">
+                <!-- 动态生成专题卡片 -->
+            </div>
+
+            <!-- 顺序刷题模式 -->
+            <div id="sequence-mode" class="problems-container hidden">
+                <!-- 动态生成题目卡片 -->
+            </div>
+        </main>
+    </div>
+
+    <!-- 题目详情模态框 -->
+    <div id="problem-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-effect">
+            <div class="modal-header">
+                <h3 id="modal-title"></h3>
+                <button class="close-btn" id="close-modal">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="problem-info">
+                    <span class="problem-category" id="modal-category"></span>
+                    <span class="problem-number" id="modal-number"></span>
+                </div>
+                <div class="modal-actions">
+                    <button class="complete-btn" id="complete-problem">
+                        <i class='bx bx-check'></i>
+                        标记完成
+                    </button>
+                    <button class="wrong-btn" id="add-to-wrong">
+                        <i class='bx bx-error'></i>
+                        加入错题集
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 已刷题目模态框 -->
+    <div id="solved-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-effect large-modal">
+            <div class="modal-header">
+                <h3>已刷题目</h3>
+                <button class="close-btn" id="close-solved-modal">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="solved-problems-list" class="solved-problems-grid">
+                    <!-- 动态生成已刷题目 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 错题集模态框 -->
+    <div id="wrong-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-effect large-modal">
+            <div class="modal-header">
+                <h3>错题集</h3>
+                <button class="close-btn" id="close-wrong-modal">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="wrong-problems-list" class="solved-problems-grid">
+                    <!-- 动态生成错题 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 激励提示 -->
+    <div id="encouragement-toast" class="toast hidden">
+        <div class="toast-content">
+            <i class='bx bx-trophy'></i>
+            <span id="toast-message"></span>
+        </div>
+    </div>
+
+    <!-- 庆祝动画容器 -->
+    <div id="celebration-container"></div>
+
+    <!-- 主题选择器 -->
+    <div id="theme-selector" class="theme-selector hidden">
+        <div class="theme-backdrop"></div>
+        <div class="theme-content glass-effect">
+            <div class="theme-header">
+                <h3>选择主题</h3>
+                <button class="close-btn" id="close-theme-selector">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            <div class="theme-grid">
+                <div class="theme-option active" data-theme="default">
+                    <div class="theme-preview default-preview"></div>
+                    <span>默认渐变</span>
+                </div>
+                <div class="theme-option" data-theme="elegant-gray">
+                    <div class="theme-preview elegant-gray-preview"></div>
+                    <span>典雅灰</span>
+                </div>
+                <div class="theme-option" data-theme="premium-black">
+                    <div class="theme-preview premium-black-preview"></div>
+                    <span>高级黑</span>
+                </div>
+                <div class="theme-option" data-theme="pure-white">
+                    <div class="theme-preview pure-white-preview"></div>
+                    <span>纯净白</span>
+                </div>
+                <div class="theme-option" data-theme="elegant-blue">
+                    <div class="theme-preview elegant-blue-preview"></div>
+                    <span>淡雅蓝</span>
+                </div>
+                <div class="theme-option" data-theme="nature-green">
+                    <div class="theme-preview nature-green-preview"></div>
+                    <span>自然绿</span>
+                </div>
+                <div class="theme-option" data-theme="neon-pink">
+                    <div class="theme-preview neon-pink-preview"></div>
+                    <span>霓虹粉</span>
+                </div>
+                <div class="theme-option" data-theme="mystery-purple">
+                    <div class="theme-preview mystery-purple-preview"></div>
+                    <span>神秘紫</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- 点击特效容器 -->
+    <div id="click-effects"></div>
+    
+    <!-- 鼠标拖尾容器 -->
+    <div id="mouse-trail"></div>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
